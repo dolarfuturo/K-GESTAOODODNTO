@@ -8,7 +8,7 @@ st.title("🦷 Cobrança - Odonto Excellence")
 
 # --- COLOQUE O LINK DA SUA PLANILHA ABAIXO ---
 # No Google Sheets: Arquivo > Compartilhar > Publicar na Web (formato CSV)
-SHEET_URL = "SUA_URL_DO_CSV_AQUI"
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1HGC6di7KxDY3Jj-xl4NXCeDHbwJI0A7iumZt9p8isVg/export?format=csv"
 
 try:
     df = pd.read_csv(SHEET_URL)
