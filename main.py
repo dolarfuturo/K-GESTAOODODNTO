@@ -4,7 +4,7 @@ import urllib.parse
 
 st.set_page_config(page_title="Gestão Odonto", layout="wide")
 
-# CSS para visual compacto e sem cortes no tablet
+# CSS para visual ultra compacto para o tablet
 st.markdown("""
     <style>
     .block-container {padding-top: 0.5rem; padding-bottom: 0.5rem;}
@@ -12,7 +12,7 @@ st.markdown("""
         display: flex; 
         justify-content: space-between; 
         align-items: center;
-        padding: 4px 0px;
+        padding: 6px 0px;
         border-bottom: 1px solid #f0f0f0;
     }
     .nome-paciente { font-size: 14px; font-weight: bold; flex: 2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -21,37 +21,36 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# FUNÇÃO PARA BUSCAR DADOS COM ATUALIZAÇÃO AUTOMÁTICA
+# CARREGAR DADOS COM ATUALIZAÇÃO AUTOMÁTICA (TTL 10 SEG)
 @st.cache_data(ttl=10)
 def carregar_dados(url):
     df_novo = pd.read_csv(url)
-    df_novo.columns = df_novo.columns.str.strip().str.upper() # Garante que tudo vire MAIÚSCULO
+    # Limpa nomes de colunas (tira espaços extras e deixa em maiúsculo)
+    df_novo.columns = df_novo.columns.str.strip().str.upper()
     return df_novo
 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1HGC6di7KxDY3Jj-xl4NXCeDHbwJI0A7iumZt9p8isVg/gviz/tq?tqx=out:csv"
 
 try:
-    # Carrega os dados da planilha
     df_planilha = carregar_dados(SHEET_URL)
-    
     st.title("🦷 Cobrança Odonto")
 
     for index, row in df_planilha.iterrows():
-        if pd.isna(row['NOME']): continue
+        if pd.isna(row.get('NOME')): continue
         
         nome = str(row['NOME']).upper()
         telefone = str(row['TELEFONE']).split('.')[0]
         atraso = row['TOTAL EM ATRASO']
         entrada = row['VALOR DE ENTRADA']
         
-        # AJUSTE AQUI: O código agora procura exatamente por 'CÓDIGO PIX'
-        pix = str(row['CÓDIGO PIX']) if 'CÓDIGO PIX' in row and pd.notna(row['CÓDIGO PIX']) else "Chave não encontrada"
+        # AJUSTE: Procurando 'CODIGO PIX' sem acento conforme a imagem
+        pix = str(row['CODIGO PIX']) if 'CODIGO PIX' in row and pd.notna(row['CODIGO PIX']) else "Solicitar Chave"
         
         canal = str(row['CANAL']).upper().strip()
 
         def fmt(v): return f"R$ {v:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
 
-        # MENSAGEM COMPLETA COM O CÓDIGO PIX DA PLANILHA
+        # MENSAGEM COMPLETA
         texto_whats = (
             f"Oi {nome}! Eu sou da clínica Odonto Excellence. 🦷\n\n"
             f"📌 Total em atraso: {fmt(atraso)}\n"
@@ -83,8 +82,7 @@ try:
                 </div>
             ''', unsafe_allow_html=True)
 
-    with st.expander("⚙️ CONFERIR DADOS DA PLANILHA"):
-        st.write("Abaixo você vê exatamente o que o sistema está lendo da sua planilha:")
+    with st.expander("⚙️ CONFERIR PLANILHA"):
         st.dataframe(df_planilha)
 
 except Exception as e:
