@@ -4,14 +4,17 @@ import urllib.parse
 
 st.set_page_config(page_title="Gestão Odonto", layout="wide")
 
-# CSS PARA DEIXAR TUDO MUITO PRÓXIMO E COMPACTO
+# CSS CORRIGIDO: Espaçamento pequeno, mas sem sobrepor os textos
 st.markdown("""
     <style>
-    .block-container {padding-top: 0.5rem; padding-bottom: 0rem;}
-    div[data-testid="stVerticalBlock"] > div {padding: 0px 0px; margin-bottom: -15px;}
-    .stMarkdown p {font-size: 15px; margin-bottom: 0px;}
-    hr {margin-top: 2px !important; margin-bottom: 2px !important;}
-    button {height: 25px; padding: 0px 5px !important;}
+    .block-container {padding-top: 1rem; padding-bottom: 1rem;}
+    .patient-row {
+        padding: 10px;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        align-items: center;
+    }
+    .stMarkdown p {font-size: 16px; margin-bottom: 0px; line-height: 1.2;}
     </style>
     """, unsafe_allow_html=True)
 
@@ -22,9 +25,9 @@ try:
         st.session_state.df = pd.read_csv(SHEET_URL)
         st.session_state.df.columns = st.session_state.df.columns.str.strip()
 
-    st.subheader("🦷 Cobrança Rápida")
+    st.title("🦷 Cobrança Odonto")
 
-    # EXIBIÇÃO DOS PACIENTES (BEM PRÓXIMOS)
+    # EXIBIÇÃO ORGANIZADA POR LINHAS
     for index, row in st.session_state.df.iterrows():
         if pd.isna(row['NOME']): continue
         
@@ -34,27 +37,33 @@ try:
         canal = str(row['CANAL']).upper().strip()
         celular = str(row['TELEFONE']).split('.')[0]
         
-        c1, c2, c3 = st.columns([4, 2, 2])
-        c1.write(f"**{nome}**")
-        c2.write(f"{valor_f}")
+        # Grid para alinhar sem embolar
+        col1, col2, col3 = st.columns([3, 2, 2])
         
-        if canal == "WATS":
-            msg = f"Oi {nome}! O valor para acerto é {valor_f}. 🦷\n📞 wa.me/5551997194306"
-            link = f"https://wa.me/{celular}?text={urllib.parse.quote(msg)}"
-            c3.markdown(f'''<a href="{link}" target="_blank"><button style="background-color:#25D366; color:white; border:none; border-radius:4px; width:100%; font-weight:bold; cursor:pointer;">ZAP</button></a>''', unsafe_allow_html=True)
-        else:
-            email = str(row['EMAIL'])
-            link_m = f"mailto:{email}?subject=Odonto&body=Oi {nome}"
-            c3.markdown(f'''<a href="{link_m}"><button style="background-color:#D14836; color:white; border:none; border-radius:4px; width:100%; font-weight:bold; cursor:pointer;">MAIL</button></a>''', unsafe_allow_html=True)
+        with col1:
+            st.write(f"**{nome}**")
+        with col2:
+            st.write(f"**{valor_f}**")
+        with col3:
+            if canal == "WATS":
+                msg = f"Oi {nome}! O valor para acerto é {valor_f}. 🦷"
+                link = f"https://wa.me/{celular}?text={urllib.parse.quote(msg)}"
+                st.markdown(f'[:green[**ENVIAR ZAP**]]({link})')
+            else:
+                email = str(row['EMAIL'])
+                link_m = f"mailto:{email}?subject=Odonto&body=Oi {nome}"
+                st.markdown(f'[:red[**ENVIAR MAIL**]]({link_m})')
         
-        st.divider()
+        st.markdown("---") # Linha divisória fina entre pacientes
 
-    # BOTÃO PARA ESCONDER A EDIÇÃO NO FINAL
-    with st.expander("⚙️ EDITAR VALORES OU NOMES"):
+    # MENU DE EDIÇÃO ESCONDIDO NO FINAL
+    st.write("")
+    with st.expander("⚙️ CLIQUE PARA EDITAR VALORES OU NOMES"):
+        st.info("Altere os dados na tabela abaixo e clique em SALVAR.")
         edited_df = st.data_editor(st.session_state.df, num_rows="dynamic", use_container_width=True)
         if st.button("SALVAR ALTERAÇÕES"):
             st.session_state.df = edited_df
             st.rerun()
 
 except Exception as e:
-    st.error(f"Erro: {e}")
+    st.error(f"Erro ao carregar: {e}")
