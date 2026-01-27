@@ -4,7 +4,7 @@ import urllib.parse
 
 st.set_page_config(page_title="Gestão Odonto", layout="wide")
 
-# CSS PARA DEIXAR TEXTO COMPLETO E LINHAS JUNTAS
+# CSS para visual compacto e sem cortes
 st.markdown("""
     <style>
     .block-container {padding-top: 1rem; padding-bottom: 1rem;}
@@ -12,11 +12,11 @@ st.markdown("""
         display: flex; 
         justify-content: space-between; 
         align-items: center;
-        padding: 5px 0px;
+        padding: 4px 0px;
         border-bottom: 1px solid #f0f0f0;
     }
-    .nome-paciente { font-size: 14px; font-weight: bold; flex: 2; }
-    .valor-paciente { font-size: 14px; flex: 1; text-align: center; }
+    .nome-paciente { font-size: 14px; font-weight: bold; flex: 2; color: #333; }
+    .valor-paciente { font-size: 14px; flex: 1; text-align: center; color: #666; }
     .botao-link { flex: 1; text-align: right; }
     </style>
     """, unsafe_allow_html=True)
@@ -28,34 +28,45 @@ try:
         st.session_state.df = pd.read_csv(SHEET_URL)
         st.session_state.df.columns = st.session_state.df.columns.str.strip()
 
-    st.title("🦷 Cobrança")
+    st.title("🦷 Cobrança Odonto")
 
     for index, row in st.session_state.df.iterrows():
         if pd.isna(row['NOME']): continue
         
         nome = str(row['NOME']).upper()
-        valor = f"R$ {row['TOTAL EM ATRASO']:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+        valor_raw = row['TOTAL EM ATRASO']
+        valor_f = f"R$ {valor_raw:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
         canal = str(row['CANAL']).upper().strip()
         celular = str(row['TELEFONE']).split('.')[0]
         
-        # HTML customizado para garantir que o texto não quebre
+        # MENSAGEM COMPLETA COM PIX E RETORNO
+        # Ajuste a chave PIX abaixo se for diferente de 'odonto@email.com'
+        chave_pix = "CHAVE PIX AQUI" 
+        
+        texto_whatsapp = (
+            f"Oi {nome}! Eu sou da clínica Odonto Excellence. 🦷\n\n"
+            f"📌 Consta um valor pendente de {valor_f}.\n\n"
+            f"Caso queira pagar via PIX, a chave é:\n🔑 {chave_pix}\n\n"
+            f"Se preferir falar conosco, clique aqui: wa.me/5551997194306"
+        )
+        
+        link_zap = f"https://wa.me/{celular}?text={urllib.parse.quote(texto_whatsapp)}"
+
         if canal == "WATS":
-            msg = f"Oi {nome}! Valor: {valor}. 🦷"
-            link = f"https://wa.me/{celular}?text={urllib.parse.quote(msg)}"
             st.markdown(f'''
                 <div class="lista-item">
                     <div class="nome-paciente">{nome}</div>
-                    <div class="valor-paciente">{valor}</div>
-                    <div class="botao-link"><a href="{link}" target="_blank" style="color:#25D366; font-weight:bold; text-decoration:none;">ZAP 📲</a></div>
+                    <div class="valor-paciente">{valor_f}</div>
+                    <div class="botao-link"><a href="{link_zap}" target="_blank" style="color:#25D366; font-weight:bold; text-decoration:none;">ZAP 📲</a></div>
                 </div>
             ''', unsafe_allow_html=True)
         else:
             email = str(row['EMAIL'])
-            link_m = f"mailto:{email}?subject=Odonto&body=Oi {nome}"
+            link_m = f"mailto:{email}?subject=Odonto&body={urllib.parse.quote(texto_whatsapp)}"
             st.markdown(f'''
                 <div class="lista-item">
                     <div class="nome-paciente">{nome}</div>
-                    <div class="valor-paciente">{valor}</div>
+                    <div class="valor-paciente">{valor_f}</div>
                     <div class="botao-link"><a href="{link_m}" style="color:#D14836; font-weight:bold; text-decoration:none;">EMAIL 📩</a></div>
                 </div>
             ''', unsafe_allow_html=True)
