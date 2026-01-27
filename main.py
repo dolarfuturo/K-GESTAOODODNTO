@@ -21,12 +21,22 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+# FUNÇÃO PARA BUSCAR DADOS COM ATUALIZAÇÃO AUTOMÁTICA (CACHE)
+@st.cache_data(ttl=20)
+def carregar_dados(url):
+    df_novo = pd.read_csv(url)
+    df_novo.columns = df_novo.columns.str.strip()
+    return df_novo
+
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1HGC6di7KxDY3Jj-xl4NXCeDHbwJI0A7iumZt9p8isVg/gviz/tq?tqx=out:csv"
 
 try:
+    # Carrega os dados da planilha (atualiza a cada 20s)
+    df_planilha = carregar_dados(SHEET_URL)
+    
+    # Se não houver edição manual no app, usa os dados da planilha
     if 'df' not in st.session_state:
-        st.session_state.df = pd.read_csv(SHEET_URL)
-        st.session_state.df.columns = st.session_state.df.columns.str.strip()
+        st.session_state.df = df_planilha
 
     st.title("🦷 Cobrança Odonto")
 
@@ -57,7 +67,7 @@ try:
 
         link_zap = f"https://wa.me/{telefone}?text={urllib.parse.quote(texto_whats)}"
         
-        # HTML DA LINHA COMPACTA
+        # EXIBIÇÃO NA TELA
         if canal == "WATS":
             st.markdown(f'''
                 <div class="lista-item">
@@ -67,7 +77,7 @@ try:
                 </div>
             ''', unsafe_allow_html=True)
         else:
-            link_mail = f"mailto:{email}?subject=Odonto Excellence - Pendência&body=Oi {nome}, por favor entre em contato sobre seu tratamento."
+            link_mail = f"mailto:{email}?subject=Odonto Excellence - Pendência&body={urllib.parse.quote(texto_whats)}"
             st.markdown(f'''
                 <div class="lista-item">
                     <div class="nome-paciente">{nome}</div>
