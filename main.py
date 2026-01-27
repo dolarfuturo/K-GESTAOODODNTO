@@ -4,7 +4,7 @@ import urllib.parse
 
 st.set_page_config(page_title="Gestão Odonto", layout="wide")
 
-# CSS para visual compacto
+# CSS para visual compacto e sem cortes no tablet
 st.markdown("""
     <style>
     .block-container {padding-top: 0.5rem; padding-bottom: 0.5rem;}
@@ -21,19 +21,19 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-@st.cache_data(ttl=20)
+# FUNÇÃO PARA BUSCAR DADOS COM ATUALIZAÇÃO AUTOMÁTICA
+@st.cache_data(ttl=10)
 def carregar_dados(url):
     df_novo = pd.read_csv(url)
-    df_novo.columns = df_novo.columns.str.strip()
+    df_novo.columns = df_novo.columns.str.strip().str.upper() # Garante que tudo vire MAIÚSCULO
     return df_novo
 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1HGC6di7KxDY3Jj-xl4NXCeDHbwJI0A7iumZt9p8isVg/gviz/tq?tqx=out:csv"
 
 try:
+    # Carrega os dados da planilha
     df_planilha = carregar_dados(SHEET_URL)
     
-    # IMPORTANTE: Vamos garantir que o nome da coluna PIX seja lido corretamente
-    # Na sua planilha é a coluna 'PIX' (Coluna H)
     st.title("🦷 Cobrança Odonto")
 
     for index, row in df_planilha.iterrows():
@@ -44,14 +44,14 @@ try:
         atraso = row['TOTAL EM ATRASO']
         entrada = row['VALOR DE ENTRADA']
         
-        # Tenta pegar a chave PIX da coluna 'PIX'. Se não achar, usa um aviso.
-        pix = str(row['PIX']) if 'PIX' in row and pd.notna(row['PIX']) else "Solicitar ao atendente"
+        # AJUSTE AQUI: O código agora procura exatamente por 'CÓDIGO PIX'
+        pix = str(row['CÓDIGO PIX']) if 'CÓDIGO PIX' in row and pd.notna(row['CÓDIGO PIX']) else "Chave não encontrada"
         
         canal = str(row['CANAL']).upper().strip()
 
         def fmt(v): return f"R$ {v:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
 
-        # MENSAGEM COMPLETA
+        # MENSAGEM COMPLETA COM O CÓDIGO PIX DA PLANILHA
         texto_whats = (
             f"Oi {nome}! Eu sou da clínica Odonto Excellence. 🦷\n\n"
             f"📌 Total em atraso: {fmt(atraso)}\n"
@@ -83,8 +83,9 @@ try:
                 </div>
             ''', unsafe_allow_html=True)
 
-    with st.expander("⚙️ AJUSTE MANUAL / VISUALIZAR PLANILHA"):
-        st.data_editor(df_planilha, use_container_width=True)
+    with st.expander("⚙️ CONFERIR DADOS DA PLANILHA"):
+        st.write("Abaixo você vê exatamente o que o sistema está lendo da sua planilha:")
+        st.dataframe(df_planilha)
 
 except Exception as e:
     st.error(f"Erro: {e}")
