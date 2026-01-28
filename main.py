@@ -2,13 +2,18 @@ import streamlit as st
 import pandas as pd
 from urllib.parse import quote
 
-# 1. IDENTIDADE E ESTILO DO PAINEL
+# 1. CONFIGURAÇÃO E IDENTIDADE
 st.set_page_config(page_title="Painel de Resgate Odonto", layout="wide")
 
+# CSS AVANÇADO PARA LAYOUT PROFISSIONAL
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
-    .block-container { padding-top: 2rem; }
+    
+    /* Aumentei o recuo do topo para o botão aparecer completo no tablet */
+    .block-container { padding-top: 4rem; }
+    
+    /* Cartões de Totais */
     .metric-card {
         background-color: white;
         padding: 15px;
@@ -17,40 +22,53 @@ st.markdown("""
         border-left: 5px solid #1E88E5;
         margin-bottom: 10px;
     }
-    .stButton button { height: 42px; border-radius: 8px; font-weight: bold; }
+    
+    /* Botões */
+    .stButton button {
+        height: 42px;
+        border-radius: 8px;
+        font-weight: bold;
+        transition: all 0.3s;
+    }
+    
+    /* Cabeçalho da Tabela */
     .header-row {
         background-color: #1E88E5;
         color: white;
-        padding: 12px;
-        border-radius: 8px 8px 0px 0px;
+        padding: 10px;
+        border-radius: 8px;
+        margin-bottom: 10px;
         font-weight: bold;
     }
+    
+    hr { margin: 0.2rem 0px !important; border: none; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. TÍTULO E BOTÃO DE ATUALIZAR REPOSICIONADO
-st.title("🦷 Painel de Resgate Odonto")
+# TÍTULO E BOTÃO DE ATUALIZAR (REBAIXADOS PELO PADDING-TOP)
+t1, t2 = st.columns([4, 1])
+with t1:
+    st.title("🦷 Painel de Resgate Odonto")
+with t2:
+    # Este botão agora aparecerá um pouco mais baixo, livre da barra do navegador
+    if st.button("🔄 Atualizar Dados"):
+        st.cache_data.clear()
+        st.rerun()
 
-# O ID da sua planilha corrigido para evitar o SyntaxError
 sheet_id = "1HGC6di7KxDY3Jj-xl4NXCeDHbwJI0A7iumZt9p8isVg"
 sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
-
-# Botão de atualizar com um pequeno recuo para não ficar colado no topo
-if st.button("🔄 Sincronizar Novos Dados da Planilha", use_container_width=True):
-    st.cache_data.clear()
-    st.rerun()
 
 try:
     df = pd.read_csv(sheet_url)
     df['TOTAL EM ATRASO'] = pd.to_numeric(df.iloc[:, 3], errors='coerce').fillna(0)
     df['VALOR DE ENTRADA'] = pd.to_numeric(df.iloc[:, 4], errors='coerce').fillna(0)
 
-    # 3. BUSCA E SELETOR DE CANAL
+    # FILTROS
     f1, f2 = st.columns([2, 1])
     busca = f1.text_input("🔍 Localizar Paciente (Nome):", "").upper()
     canal_ativo = f2.radio("Canal de Contato:", ["WhatsApp", "E-mail"], horizontal=True)
 
-    # 4. RESUMO FINANCEIRO (TOTAIS)
+    # RESUMO FINANCEIRO ESTILIZADO
     m1, m2, m3 = st.columns(3)
     with m1:
         st.markdown(f'<div class="metric-card">👥 <b>Pacientes</b><br><span style="font-size:22px">{len(df)}</span></div>', unsafe_allow_html=True)
@@ -59,10 +77,9 @@ try:
     with m3:
         st.markdown(f'<div class="metric-card" style="border-left-color: #388e3c">💰 <b>Total Entradas</b><br><span style="font-size:22px; color:#388e3c">R$ {df["VALOR DE ENTRADA"].sum():,.2f}</span></div>', unsafe_allow_html=True)
 
-    st.divider()
     st.markdown('<div class="header-row"> <div style="display: flex; justify-content: space-between;"> <span style="width:30%">PACIENTE</span> <span style="width:20%">ATRASO</span> <span style="width:20%">ENTRADA</span> <span style="width:30%">AÇÃO</span> </div> </div>', unsafe_allow_html=True)
 
-    # 5. LISTAGEM FILTRADA
+    # LISTAGEM
     df_filtrado = df[df.iloc[:, 0].str.upper().str.contains(busca, na=False)]
 
     for index, row in df_filtrado.iterrows():
@@ -71,9 +88,9 @@ try:
         email = str(row.iloc[2])
         v_atraso = row['TOTAL EM ATRASO']
         v_entrada = row['VALOR DE ENTRADA']
-        pix = str(row.iloc[8]) # Coluna I (PIX)
+        pix = str(row.iloc[8])
 
-        texto_msg = f"Oi! Tudo bem? Eu sou RENATO, da Odonto Excellence! 🦷\n\n📌 Total em atraso: R$ {v_atraso:,.2f}\n🤝 Entrada: R$ {v_entrada:,.2f}\n\nPIX: {pix}"
+        texto_mensagem = f"Oi! Tudo bem? Eu sou RENATO, da Odonto Excellence! 🦷\n\n📌 Total em atraso: R$ {v_atraso:,.2f}\n🤝 Entrada: R$ {v_entrada:,.2f}\n\nPIX: {pix}"
 
         with st.container():
             c1, c2, c3, c4 = st.columns([3, 2, 2, 3])
@@ -83,10 +100,10 @@ try:
             
             with c4:
                 if canal_ativo == "WhatsApp":
-                    url = f"https://wa.me/{tel}?text={quote(texto_msg)}"
+                    url = f"https://wa.me/{tel}?text={quote(texto_mensagem)}"
                     st.link_button("🟢 WHATSAPP", url, use_container_width=True)
                 else:
-                    url = f"mailto:{email}?subject=Resgate%20Odonto&body={quote(texto_msg)}"
+                    url = f"mailto:{email}?subject=Resgate%20Odonto&body={quote(texto_mensagem)}"
                     st.link_button("📩 E-MAIL", url, use_container_width=True)
             st.divider()
 
