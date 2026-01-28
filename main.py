@@ -9,11 +9,7 @@ st.set_page_config(page_title="Painel de Resgate Odonto", layout="wide")
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
-    
-    /* Aumentei o recuo do topo para o botão aparecer completo no tablet */
     .block-container { padding-top: 4rem; }
-    
-    /* Cartões de Totais */
     .metric-card {
         background-color: white;
         padding: 15px;
@@ -22,16 +18,12 @@ st.markdown("""
         border-left: 5px solid #1E88E5;
         margin-bottom: 10px;
     }
-    
-    /* Botões */
     .stButton button {
         height: 42px;
         border-radius: 8px;
         font-weight: bold;
         transition: all 0.3s;
     }
-    
-    /* Cabeçalho da Tabela */
     .header-row {
         background-color: #1E88E5;
         color: white;
@@ -40,17 +32,15 @@ st.markdown("""
         margin-bottom: 10px;
         font-weight: bold;
     }
-    
     hr { margin: 0.2rem 0px !important; border: none; }
     </style>
     """, unsafe_allow_html=True)
 
-# TÍTULO E BOTÃO DE ATUALIZAR (REBAIXADOS PELO PADDING-TOP)
+# TÍTULO E BOTÃO DE ATUALIZAR
 t1, t2 = st.columns([4, 1])
 with t1:
     st.title("🦷 Painel de Resgate Odonto")
 with t2:
-    # Este botão agora aparecerá um pouco mais baixo, livre da barra do navegador
     if st.button("🔄 Atualizar Dados"):
         st.cache_data.clear()
         st.rerun()
@@ -68,7 +58,7 @@ try:
     busca = f1.text_input("🔍 Localizar Paciente (Nome):", "").upper()
     canal_ativo = f2.radio("Canal de Contato:", ["WhatsApp", "E-mail"], horizontal=True)
 
-    # RESUMO FINANCEIRO ESTILIZADO
+    # RESUMO FINANCEIRO
     m1, m2, m3 = st.columns(3)
     with m1:
         st.markdown(f'<div class="metric-card">👥 <b>Pacientes</b><br><span style="font-size:22px">{len(df)}</span></div>', unsafe_allow_html=True)
@@ -77,7 +67,8 @@ try:
     with m3:
         st.markdown(f'<div class="metric-card" style="border-left-color: #388e3c">💰 <b>Total Entradas</b><br><span style="font-size:22px; color:#388e3c">R$ {df["VALOR DE ENTRADA"].sum():,.2f}</span></div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="header-row"> <div style="display: flex; justify-content: space-between;"> <span style="width:30%">PACIENTE</span> <span style="width:20%">ATRASO</span> <span style="width:20%">ENTRADA</span> <span style="width:30%">AÇÃO</span> </div> </div>', unsafe_allow_html=True)
+    # CABEÇALHO DA TABELA COM NOME ALTERADO
+    st.markdown('<div class="header-row"> <div style="display: flex; justify-content: space-between;"> <span style="width:30%">PACIENTE</span> <span style="width:20%">TOTAL EM ATRASO</span> <span style="width:20%">ENTRADA</span> <span style="width:30%">AÇÃO</span> </div> </div>', unsafe_allow_html=True)
 
     # LISTAGEM
     df_filtrado = df[df.iloc[:, 0].str.upper().str.contains(busca, na=False)]
