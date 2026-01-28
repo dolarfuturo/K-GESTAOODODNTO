@@ -5,7 +5,6 @@ from urllib.parse import quote
 # 1. CONFIGURAÇÃO E IDENTIDADE
 st.set_page_config(page_title="Painel de Resgate Odonto", layout="wide")
 
-# CSS AVANÇADO PARA LAYOUT PROFISSIONAL
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
@@ -21,60 +20,43 @@ st.markdown("""
         margin-bottom: 10px;
     }
     
-    /* Botões */
+    /* Estilo dos Botões de Ação */
     .stButton button {
         height: 42px;
         border-radius: 8px;
         font-weight: bold;
-        transition: all 0.3s;
     }
     
     /* Cabeçalho da Tabela */
     .header-row {
         background-color: #1E88E5;
         color: white;
-        padding: 10px;
-        border-radius: 8px;
-        margin-bottom: 10px;
-        font-weight: bold;
-    }
-    
-    /* Linhas da Tabela */
-    .patient-row {
-        background-color: white;
         padding: 12px;
-        border-radius: 8px;
-        margin-bottom: 6px;
-        border: 1px solid #eee;
+        border-radius: 8px 8px 0px 0px;
+        font-weight: bold;
     }
     
     hr { margin: 0.2rem 0px !important; border: none; }
     </style>
     """, unsafe_allow_html=True)
 
-# TÍTULO E BOTÃO DE ATUALIZAR
-t1, t2 = st.columns([4, 1])
-with t1:
-    st.title("🦷 Painel de Resgate Odonto")
-with t2:
-    if st.button("🔄 Atualizar Dados"):
-        st.cache_data.clear()
-        st.rerun()
+st.title("🦷 Painel de Resgate Odonto")
 
 sheet_id = "1HGC6di7KxDY3Jj-xl4NXCeDHbwJI0A7iumZt9p8isVg"
 sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
 
 try:
+    # Carregar dados
     df = pd.read_csv(sheet_url)
     df['TOTAL EM ATRASO'] = pd.to_numeric(df.iloc[:, 3], errors='coerce').fillna(0)
     df['VALOR DE ENTRADA'] = pd.to_numeric(df.iloc[:, 4], errors='coerce').fillna(0)
 
-    # FILTROS
+    # 2. FILTROS E BUSCA
     f1, f2 = st.columns([2, 1])
     busca = f1.text_input("🔍 Localizar Paciente (Nome):", "").upper()
     canal_ativo = f2.radio("Canal de Contato:", ["WhatsApp", "E-mail"], horizontal=True)
 
-    # RESUMO FINANCEIRO ESTILIZADO
+    # 3. RESUMO FINANCEIRO (TOTAIS)
     m1, m2, m3 = st.columns(3)
     with m1:
         st.markdown(f'<div class="metric-card">👥 <b>Pacientes</b><br><span style="font-size:22px">{len(df)}</span></div>', unsafe_allow_html=True)
@@ -83,9 +65,14 @@ try:
     with m3:
         st.markdown(f'<div class="metric-card" style="border-left-color: #388e3c">💰 <b>Total Entradas</b><br><span style="font-size:22px; color:#388e3c">R$ {df["VALOR DE ENTRADA"].sum():,.2f}</span></div>', unsafe_allow_html=True)
 
+    # 4. BOTÃO DE ATUALIZAR REPOSICIONADO (ABAIXO DOS TOTAIS)
+    if st.button("🔄 Sincronizar Novos Dados da Planilha", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
+
     st.markdown('<div class="header-row"> <div style="display: flex; justify-content: space-between;"> <span style="width:30%">PACIENTE</span> <span style="width:20%">ATRASO</span> <span style="width:20%">ENTRADA</span> <span style="width:30%">AÇÃO</span> </div> </div>', unsafe_allow_html=True)
 
-    # LISTAGEM
+    # 5. LISTAGEM FILTRADA
     df_filtrado = df[df.iloc[:, 0].str.upper().str.contains(busca, na=False)]
 
     for index, row in df_filtrado.iterrows():
@@ -94,7 +81,7 @@ try:
         email = str(row.iloc[2])
         v_atraso = row['TOTAL EM ATRASO']
         v_entrada = row['VALOR DE ENTRADA']
-        pix = str(row.iloc[8])
+        pix = str(row.iloc[8]) # Coluna I
 
         texto_mensagem = f"Oi! Tudo bem? Eu sou RENATO, da Odonto Excellence! 🦷\n\n📌 Total em atraso: R$ {v_atraso:,.2f}\n🤝 Entrada: R$ {v_entrada:,.2f}\n\nPIX: {pix}"
 
