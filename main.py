@@ -14,6 +14,7 @@ sheet_id = "1HGC6di7KxDY3Jj-xl4NXCeDHbwJI0A7iumZt9p8isVg"
 sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
 
 try:
+    # Carregando os dados
     df = pd.read_csv(sheet_url)
 
     # 1. BLOCO DE PERFORMANCE (KPIs)
@@ -21,7 +22,7 @@ try:
     with col_kpi1:
         st.metric("Total em Aberto", f"R$ {df['TOTAL EM ATRASO'].sum():,.2f}")
     with col_kpi2:
-        st.metric("Meta de Resgate (Entradas)", f"R$ {df['VALOR DE ENTRADA'].sum():,.2f}", delta_color="normal")
+        st.metric("Meta de Resgate (Entradas)", f"R$ {df['VALOR DE ENTRADA'].sum():,.2f}")
     with col_kpi3:
         st.metric("Pacientes na Lista", len(df))
 
@@ -34,53 +35,56 @@ try:
     with col_f2:
         canal_filtro = st.selectbox("🎯 Canal de Resgate", ["Todos", "WhatsApp", "E-mail"])
 
-    # Lógica de Filtro
+    # Lógica de Filtro por Nome
     df_filtrado = df.copy()
     if busca:
         df_filtrado = df_filtrado[df_filtrado.iloc[:, 0].str.contains(busca, case=False, na=False)]
     
-    # 3. CABEÇALHO DA TABELA
+    # 3. CABEÇALHO DA TABELA (Correção do Erro: unsafe_allow_html)
     st.markdown("""
         <style>
-        .header-text { font-weight: bold; color: #555; }
+        .header-text { font-weight: bold; color: #555; font-size: 16px; }
         </style>
-        """, unsafe_allow_stdio=True)
+        """, unsafe_allow_html=True)
     
-    c1, c2, c3, c4 = st.columns([3, 2, 2, 2])
-    c1.markdown("<p class='header-text'>PACIENTE</p>", unsafe_allow_stdio=True)
-    c2.markdown("<p class='header-text'>PENDÊNCIA</p>", unsafe_allow_stdio=True)
-    c3.markdown("<p class='header-text'>ENTRADA</p>", unsafe_allow_stdio=True)
-    c4.markdown("<p class='header-text'>AÇÃO</p>", unsafe_allow_stdio=True)
+    c1, c2, c3, c4, c5 = st.columns([3, 2, 2, 2, 2])
+    c1.markdown("<p class='header-text'>PACIENTE</p>", unsafe_allow_html=True)
+    c2.markdown("<p class='header-text'>PENDÊNCIA</p>", unsafe_allow_html=True)
+    c3.markdown("<p class='header-text'>ENTRADA</p>", unsafe_allow_html=True)
+    c4.markdown("<p class='header-text'>STATUS</p>", unsafe_allow_html=True)
+    c5.markdown("<p class='header-text'>AÇÃO</p>", unsafe_allow_html=True)
 
     # 4. LISTAGEM DE OPERAÇÃO
     for index, row in df_filtrado.iterrows():
-        nome = row.iloc[0]
+        nome = str(row.iloc[0])
         atraso = row['TOTAL EM ATRASO']
         entrada = row['VALOR DE ENTRADA']
-        tel = str(row['TELEFONE']).split('.')[0]
-        email = row['EMAIL']
-        pix = row['CODIGO PIX']
+        email = str(row['EMAIL'])
+        # Status baseado na coluna CANAL
+        status_v = "Pendente" if pd.isna(row['CANAL']) else "Contatado"
+        
+        # LINK DO WHATSAPP (Pegando direto da sua Coluna G - índice 6)
+        link_wats_planilha = str(row.iloc[6]) 
 
-        # Mensagem Automática
-        msg = f"Oi {nome}! Sou o RENATO da Odonto Excellence. Sentimos sua falta! Para seu tratamento não parar, conseguimos uma condição especial de retorno: Entrada de R$ {entrada}. PIX: {pix}"
-        link_wats = f"https://wa.me/{tel}?text={quote(msg)}"
+        # LÓGICA DO E-MAIL (Extraindo a mensagem do seu link na coluna G)
+        mensagem_corpo = link_wats_planilha.split("text=")[1] if "text=" in link_wats_planilha else ""
+        link_email = f"mailto:{email}?subject=Contato%20Odonto%20Excellence&body={mensagem_corpo}"
 
         # Linhas do Painel
         with st.container():
-            col1, col2, col3, col4 = st.columns([3, 2, 2, 2])
+            col1, col2, col3, col4, col5 = st.columns([3, 2, 2, 2, 2])
             col1.write(f"**{nome}**")
             col2.markdown(f":red[R$ {atraso:,.2f}]")
             col3.write(f"R$ {entrada:,.2f}")
+            col4.write(status_v)
             
-            with col4:
-                # Se o filtro for Todos ou WhatsApp, mostra o botão verde
+            with col5:
                 if canal_filtro in ["Todos", "WhatsApp"]:
-                    st.link_button("🟢 WATS", link_wats, use_container_width=True)
-                # Se o filtro for E-mail, mostra o botão azul
-                if canal_filtro == "E-mail":
-                    st.link_button("📩 MAIL", f"mailto:{email}", use_container_width=True)
+                    st.link_button("🟢 WATS", link_wats_planilha, use_container_width=True)
+                if canal_filtro in ["Todos", "E-mail"]:
+                    st.link_button("📩 MAIL", link_email, use_container_width=True)
             st.divider()
 
 except Exception as e:
-    st.error("Ops! Verifique se a planilha está compartilhada como 'Qualquer pessoa com o link'.")
-    st.info(f"Erro: {e}")
+    st.error("Erro ao carregar dados. Verifique o compartilhamento da planilha.")
+    st.info(f"Detalhe: {e}")
