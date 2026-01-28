@@ -1,82 +1,92 @@
 import streamlit as st
 import pandas as pd
 from urllib.parse import quote
-import unicodedata
 
-# 1. SETUP DO PAINEL
-st.set_page_config(page_title="Resgate Odonto", layout="wide")
+# 1. AJUSTES DE TELA PARA TABLET
+st.set_page_config(page_title="Gestão Odonto", layout="wide")
 
-# CSS para layout compacto (ideal para tablet)
+# CSS para eliminar espaços vazios e deixar a linha bem "magra"
 st.markdown("""
     <style>
-    .block-container { padding-top: 1rem; }
-    .stButton button { height: 32px; font-size: 12px; }
-    hr { margin: 0.3rem 0px !important; }
-    div[data-testid="column"] { padding: 0px 5px; }
+    .block-container { padding-top: 1rem; padding-bottom: 0rem; }
+    div[data-testid="stVerticalBlock"] > div { gap: 0rem; }
+    hr { margin: 0.1rem 0px !important; }
+    .stButton button { height: 35px; border-radius: 8px; font-weight: bold; }
+    [data-testid="stMetricValue"] { font-size: 22px !important; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🦷 Gestão de Resgate")
+st.title("🦷 Painel Resgate Odonto")
 
+# Link da planilha
 sheet_id = "1HGC6di7KxDY3Jj-xl4NXCeDHbwJI0A7iumZt9p8isVg"
 sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
 
 try:
-    # Lendo a planilha (forçando tudo como String para não perder dados)
-    df = pd.read_csv(sheet_url, dtype=str)
+    # Lendo os dados brutos
+    df = pd.read_csv(sheet_url)
 
-    # 2. CONTROLE SUPERIOR
+    # 2. TOPO: KPIs E TROCA DE CANAL NO PAINEL
     c1, c2, c3, c4 = st.columns([1, 1, 1, 2])
-    c1.metric("Total Aberto", f"R$ {df.iloc[:, 3].astype(float).sum():,.0f}")
-    c2.metric("Pacientes", len(df))
+    c1.metric("Aberto", f"R$ {df['TOTAL EM ATRASO'].sum():,.0f}")
+    c2.metric("Meta", f"R$ {df['VALOR DE ENTRADA'].sum():,.0f}")
+    c3.metric("Pacientes", len(df))
     with c4:
-        canal = st.radio("Selecione o Canal:", ["WhatsApp", "E-mail"], horizontal=True)
+        canal_selecionado = st.radio("Trocar Canal de Envio:", ["WhatsApp", "E-mail"], horizontal=True)
 
     st.divider()
 
-    # 3. CABEÇALHO
-    h1, h2, h3, h4 = st.columns([4, 2, 2, 2])
-    h1.write("**NOME**")
+    # 3. CABEÇALHO DA TABELA
+    h1, h2, h3, h4, h5 = st.columns([3, 1.5, 1.5, 1.2, 1.8])
+    h1.write("**PACIENTE**")
     h2.write("**ATRASO**")
-    h3.write("**STATUS**")
-    h4.write("**AÇÃO**")
+    h3.write("**ENTRADA**")
+    h4.write("**STATUS**")
+    h5.write("**AÇÃO**")
 
-    # 4. LOOP DE PACIENTES
+    # 4. LISTAGEM COM RECONSTRUÇÃO DA SUA FÓRMULA
     for index, row in df.iterrows():
+        # Dados das colunas (B, C, D, E, H)
         nome = str(row.iloc[0])
-        tel = str(row.iloc[1]).strip().split('.')[0] # Remove o .0 se existir
-        email = str(row.iloc[2])
-        atraso = str(row.iloc[3])
-        status = "✅ OK" if not pd.isna(row.get('CANAL')) else "⏳ Pend."
+        telefone = str(row.iloc[1]).strip().split('.')[0] # Coluna B
+        email_cliente = str(row.iloc[2]) # Coluna C
+        v_atraso = row['TOTAL EM ATRASO'] # Coluna D
+        v_entrada = row['VALOR DE ENTRADA'] # Coluna E
+        chave_pix = str(row.iloc[7]) # Coluna H
+        status = "✅ OK" if not pd.isna(row['CANAL']) else "⏳ Pend."
 
-        # --- O SEGREDO PARA O TEXTO VIR CERTO ---
-        # Pegamos o texto direto da Coluna G (índice 6)
-        # O .strip() remove espaços sobrando e o quote() codifica para o navegador
-        texto_planilha = str(row.iloc[6]).strip()
-        
-        # Se na Coluna G vier o texto "ENVIAR WHATSAPP" (erro de Hiperlink), 
-        # nós avisamos ou usamos um texto padrão.
-        if "ENVIAR" in texto_planilha.upper():
-             # Aqui o código reconstrói se a Coluna G falhar
-             texto_envio = f"Oi {nome}, vimos que seu tratamento parou. Pendência: R$ {atraso}. Vamos voltar?"
-        else:
-             texto_envio = texto_planilha
+        # RECONSTRUÇÃO DA MENSAGEM (IGUAL À SUA FÓRMULA DA PLANILHA)
+        msg_zap = (
+            f"Oi! Tudo bem? Eu sou RENATO, da clínica Odonto Excellence! Sentimos sua falta, "
+            f"vimos que você não compareceu mais nas consultas! Seu tratamento não pode parar! 🦷\n\n"
+            f"📌 Total em atraso: R$ {v_atraso:,.2f}\n"
+            f"🤝 Entrada para Retorno: R$ {v_entrada:,.2f}\n\n"
+            f"👉 DIGITE OK E ENVIA ✅\n\n"
+            f"Caso contrário, segue a chave PIX para a entrada:\n"
+            f"🔑 {chave_pix}\n\nAguardamos você! 🏥"
+        )
+
+        msg_email = (
+            f"Olá! Sentimos sua falta. Seu tratamento não pode parar. "
+            f"Total em atraso: R$ {v_atraso:,.2f}. PIX para retorno: {chave_pix}."
+        )
 
         with st.container():
-            col1, col2, col3, col4 = st.columns([4, 2, 2, 2])
+            col1, col2, col3, col4, col5 = st.columns([3, 1.5, 1.5, 1.2, 1.8])
             col1.write(nome)
-            col2.write(f"R$ {atraso}")
-            col3.write(status)
+            col2.markdown(f":red[R$ {v_atraso:,.2f}]")
+            col3.write(f"R$ {v_entrada:,.2f}")
+            col4.write(status)
             
-            with col4:
-                # O quote() transforma acentos e espaços em códigos que o Zap entende
-                link_encoded = quote(texto_envio)
-                
-                if canal == "WhatsApp":
-                    st.link_button("🟢 ZAP", f"https://wa.me/{tel}?text={link_encoded}", use_container_width=True)
+            with col5:
+                # O 'quote' garante que o texto não corte e os emojis funcionem
+                if canal_selecionado == "WhatsApp":
+                    link = f"https://wa.me/{telefone}?text={quote(msg_zap)}"
+                    st.link_button("🟢 ZAP", link, use_container_width=True)
                 else:
-                    st.link_button("📩 MAIL", f"mailto:{email}?subject=OdontoExcellence&body={link_encoded}", use_container_width=True)
+                    link = f"mailto:{email_cliente}?subject=Odonto Excellence&body={quote(msg_email)}"
+                    st.link_button("📩 MAIL", link, use_container_width=True)
             st.divider()
 
 except Exception as e:
-    st.error(f"Erro na Planilha: {e}")
+    st.error(f"Erro ao carregar dados: {e}")
