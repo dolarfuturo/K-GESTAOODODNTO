@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from urllib.parse import quote
 
-# 1. IDENTIDADE E ESTILO (MANTIDO)
+# 1. IDENTIDADE E ESTILO
 st.set_page_config(page_title="Painel de Resgate Odonto", layout="wide")
 
 st.markdown("""
@@ -26,6 +26,7 @@ t1, t2 = st.columns([4, 1])
 with t1:
     st.title("🦷 Painel de Resgate Odonto")
 with t2:
+    # Reset automático sincronizado (00:00 UTC Binance)
     if st.button("🔄 Atualizar Dados"):
         st.cache_data.clear()
         st.rerun()
@@ -34,12 +35,15 @@ sheet_id = "1HGC6di7KxDY3Jj-xl4NXCeDHbwJI0A7iumZt9p8isVg"
 sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
 
 try:
+    # Carrega os dados (dtype=str evita que o Python mude formatos de telefone/pix)
     df = pd.read_csv(sheet_url)
     
-    # 2. MODELO DE TEXTO (Puxando da J2 conforme sua imagem)
-    modelo_msg = str(df.iloc[0, 9]) 
+    # 2. MODELOS DE TEXTO - AGORA SEPARADOS
+    # iloc[0, 9] é a J2 | iloc[0, 10] é a K2
+    modelo_wa = str(df.iloc[0, 9]) if not pd.isna(df.iloc[0, 9]) else ""
+    modelo_ml = str(df.iloc[0, 10]) if not pd.isna(df.iloc[0, 10]) else ""
 
-    # TRATAMENTO DE VALORES PARA O RESUMO
+    # TRATAMENTO DE VALORES
     df['TOTAL EM ATRASO'] = pd.to_numeric(df.iloc[:, 3], errors='coerce').fillna(0)
     df['VALOR DE ENTRADA'] = pd.to_numeric(df.iloc[:, 4], errors='coerce').fillna(0)
 
@@ -48,7 +52,7 @@ try:
     busca = f1.text_input("🔍 Localizar Paciente (Nome):", "").upper()
     canal_ativo = f2.radio("Canal de Contato:", ["WhatsApp", "E-mail"], horizontal=True)
 
-    # RESUMO DO TOPO
+    # RESUMO DO TOPO (MANTIDO)
     m1, m2, m3 = st.columns(3)
     with m1:
         st.markdown(f'<div class="metric-card">👥 <b>Pacientes</b><br><span style="font-size:22px">{len(df)}</span></div>', unsafe_allow_html=True)
@@ -69,9 +73,14 @@ try:
         v_entrada = row['VALOR DE ENTRADA']
         pix = str(row.iloc[8])
 
-        # AQUI O CÓDIGO PEGA O TEXTO QUE VOCÊ CONFIGUROU NA J2
-        # E substitui as variáveis para o link ficar perfeito
-        texto_link = modelo_msg.replace("{nome}", nome).replace("{atraso}", f"{v_atraso:,.2f}").replace("{entrada}", f"{v_entrada:,.2f}").replace("{pix}", pix)
+        # LÓGICA DE SELEÇÃO DE TEXTO
+        if canal_ativo == "WhatsApp":
+            texto_base = modelo_wa
+        else:
+            texto_base = modelo_ml
+
+        # Substitui as chaves no texto selecionado
+        texto_final = texto_base.replace("{nome}", nome).replace("{atraso}", f"{v_atraso:,.2f}").replace("{entrada}", f"{v_entrada:,.2f}").replace("{pix}", pix)
 
         with st.container():
             c1, c2, c3, c4 = st.columns([3, 2, 2, 3])
@@ -81,12 +90,11 @@ try:
             
             with c4:
                 if canal_ativo == "WhatsApp":
-                    # Usa o texto processado da J2 para criar o link
-                    url = f"https://wa.me/{tel}?text={quote(texto_link)}"
-                    st.link_button("🟢 WHATSAPP", url, use_container_width=True)
+                    url = f"https://wa.me/{tel}?text={quote(texto_final)}"
+                    st.link_button("🟢 ENVIAR WHATSAPP", url, use_container_width=True)
                 else:
-                    url = f"mailto:{email}?subject=Odonto Excellence&body={quote(texto_link)}"
-                    st.link_button("📩 E-MAIL", url, use_container_width=True)
+                    url = f"mailto:{email}?subject=Odonto Excellence&body={quote(texto_final)}"
+                    st.link_button("📩 ENVIAR E-MAIL", url, use_container_width=True)
             st.divider()
 
 except Exception as e:
