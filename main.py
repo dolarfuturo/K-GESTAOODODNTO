@@ -2,49 +2,85 @@ import streamlit as st
 import pandas as pd
 from urllib.parse import quote
 
-st.set_page_config(page_title="Gestão Odonto", layout="wide")
-st.title("🦷 Painel de Operação - Odonto Excellence")
+# Configuração da Página para Tablet
+st.set_page_config(page_title="Resgate Odonto", layout="wide")
 
-# Link formatado para exportação automática da sua planilha
+# Título Profissional
+st.title("🦷 Painel Resgate Odonto")
+st.markdown("---")
+
+# Link da sua planilha
 sheet_id = "1HGC6di7KxDY3Jj-xl4NXCeDHbwJI0A7iumZt9p8isVg"
 sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
 
 try:
-    # Lendo a planilha (df)
     df = pd.read_csv(sheet_url)
-    
-    # Exibe um resumo rápido no topo
-    total_atraso = df['TOTAL EM ATRASO'].sum()
-    st.metric("Total em Aberto", f"R$ {total_atraso:,.2f}")
+
+    # 1. BLOCO DE PERFORMANCE (KPIs)
+    col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
+    with col_kpi1:
+        st.metric("Total em Aberto", f"R$ {df['TOTAL EM ATRASO'].sum():,.2f}")
+    with col_kpi2:
+        st.metric("Meta de Resgate (Entradas)", f"R$ {df['VALOR DE ENTRADA'].sum():,.2f}", delta_color="normal")
+    with col_kpi3:
+        st.metric("Pacientes na Lista", len(df))
 
     st.divider()
 
-    # Loop para gerar as linhas de contato
-    for index, row in df.iterrows():
-        # Ajuste exato dos nomes das colunas da sua planilha
-        nome = "Paciente" if pd.isna(row.iloc[0]) else row.iloc[0]
-        telefone = str(row['TELEFONE']).split('.')[0]
+    # 2. FILTROS PARA A GERENTE
+    col_f1, col_f2 = st.columns([2, 2])
+    with col_f1:
+        busca = st.text_input("🔍 Localizar Paciente", placeholder="Digite o nome...")
+    with col_f2:
+        canal_filtro = st.selectbox("🎯 Canal de Resgate", ["Todos", "WhatsApp", "E-mail"])
+
+    # Lógica de Filtro
+    df_filtrado = df.copy()
+    if busca:
+        df_filtrado = df_filtrado[df_filtrado.iloc[:, 0].str.contains(busca, case=False, na=False)]
+    
+    # 3. CABEÇALHO DA TABELA
+    st.markdown("""
+        <style>
+        .header-text { font-weight: bold; color: #555; }
+        </style>
+        """, unsafe_allow_stdio=True)
+    
+    c1, c2, c3, c4 = st.columns([3, 2, 2, 2])
+    c1.markdown("<p class='header-text'>PACIENTE</p>", unsafe_allow_stdio=True)
+    c2.markdown("<p class='header-text'>PENDÊNCIA</p>", unsafe_allow_stdio=True)
+    c3.markdown("<p class='header-text'>ENTRADA</p>", unsafe_allow_stdio=True)
+    c4.markdown("<p class='header-text'>AÇÃO</p>", unsafe_allow_stdio=True)
+
+    # 4. LISTAGEM DE OPERAÇÃO
+    for index, row in df_filtrado.iterrows():
+        nome = row.iloc[0]
+        atraso = row['TOTAL EM ATRASO']
+        entrada = row['VALOR DE ENTRADA']
+        tel = str(row['TELEFONE']).split('.')[0]
         email = row['EMAIL']
-        valor_atraso = row['TOTAL EM ATRASO']
-        valor_entrada = row['VALOR DE ENTRADA']
         pix = row['CODIGO PIX']
 
-        # Criando as mensagens automáticas
-        msg_whatsapp = f"Oi! Sou o RENATO da Odonto Excellence. Sentimos sua falta! Seu tratamento não pode parar. Total em atraso: R$ {valor_atraso}. Entrada para retorno: R$ {valor_entrada}. PIX: {pix}"
-        link_whatsapp = f"https://wa.me/{telefone}?text={quote(msg_whatsapp)}"
+        # Mensagem Automática
+        msg = f"Oi {nome}! Sou o RENATO da Odonto Excellence. Sentimos sua falta! Para seu tratamento não parar, conseguimos uma condição especial de retorno: Entrada de R$ {entrada}. PIX: {pix}"
+        link_wats = f"https://wa.me/{tel}?text={quote(msg)}"
 
-        # Layout do Painel
-        col1, col2, col3, col4 = st.columns([3, 2, 1, 1])
-        
-        with col1:
-            st.write(f"👤 **{nome}**")
-        with col2:
-            st.write(f":red[R$ {valor_atraso:,.2f}]")
-        with col3:
-            st.link_button("🟢 WATS", link_whatsapp, use_container_width=True)
-        with col4:
-            st.link_button("📩 MAIL", f"mailto:{email}", use_container_width=True)
+        # Linhas do Painel
+        with st.container():
+            col1, col2, col3, col4 = st.columns([3, 2, 2, 2])
+            col1.write(f"**{nome}**")
+            col2.markdown(f":red[R$ {atraso:,.2f}]")
+            col3.write(f"R$ {entrada:,.2f}")
+            
+            with col4:
+                # Se o filtro for Todos ou WhatsApp, mostra o botão verde
+                if canal_filtro in ["Todos", "WhatsApp"]:
+                    st.link_button("🟢 WATS", link_wats, use_container_width=True)
+                # Se o filtro for E-mail, mostra o botão azul
+                if canal_filtro == "E-mail":
+                    st.link_button("📩 MAIL", f"mailto:{email}", use_container_width=True)
+            st.divider()
 
 except Exception as e:
-    st.error(f"Erro ao carregar dados: Verifique se a planilha está compartilhada como 'Qualquer pessoa com o link'.")
-    st.info(f"Detalhe técnico: {e}")
+    st.error("Ops! Verifique se a planilha está compartilhada como 'Qualquer pessoa com o link'.")
+    st.info(f"Erro: {e}")
