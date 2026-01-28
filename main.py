@@ -35,18 +35,17 @@ sheet_id = "1HGC6di7KxDY3Jj-xl4NXCeDHbwJI0A7iumZt9p8isVg"
 sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
 
 try:
-    df = pd.read_csv(sheet_url)
+    # Lendo a planilha (forçando para ler tudo como texto para não dar erro)
+    df = pd.read_csv(sheet_url, dtype=str)
     
-    # 2. BUSCA O MODELO DA MENSAGEM NA J2 (Coluna 10, primeira linha de dados)
-    # Se a J2 estiver vazia, ele usa um texto padrão de segurança
-    try:
-        modelo_da_planilha = str(df.iloc[0, 9])
-    except:
-        modelo_da_planilha = "Oi {nome}, temos um assunto pendente na Odonto Excellence."
+    # 2. PEGA O MODELO DA J2 (Linha 1, Coluna J)
+    # No pandas, a coluna J é o índice 9
+    modelo_raw = str(df.iloc[0, 9]) if not pd.isna(df.iloc[0, 9]) else "Oi {nome}, temos um assunto pendente."
 
-    # TRATAMENTO DE VALORES
-    df['TOTAL EM ATRASO'] = pd.to_numeric(df.iloc[:, 3], errors='coerce').fillna(0)
-    df['VALOR DE ENTRADA'] = pd.to_numeric(df.iloc[:, 4], errors='coerce').fillna(0)
+    # TRATAMENTO DE VALORES PARA O RESUMO
+    df_numerico = df.copy()
+    df_numerico.iloc[:, 3] = pd.to_numeric(df_numerico.iloc[:, 3], errors='coerce').fillna(0)
+    df_numerico.iloc[:, 4] = pd.to_numeric(df_numerico.iloc[:, 4], errors='coerce').fillna(0)
 
     # FILTROS
     f1, f2 = st.columns([2, 1])
@@ -58,40 +57,41 @@ try:
     with m1:
         st.markdown(f'<div class="metric-card">👥 <b>Pacientes</b><br><span style="font-size:22px">{len(df)}</span></div>', unsafe_allow_html=True)
     with m2:
-        st.markdown(f'<div class="metric-card" style="border-left-color: #d32f2f">🚩 <b>Total em Atraso</b><br><span style="font-size:22px; color:#d32f2f">R$ {df["TOTAL EM ATRASO"].sum():,.2f}</span></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card" style="border-left-color: #d32f2f">🚩 <b>Total em Atraso</b><br><span style="font-size:22px; color:#d32f2f">R$ {df_numerico.iloc[:, 3].sum():,.2f}</span></div>', unsafe_allow_html=True)
     with m3:
-        st.markdown(f'<div class="metric-card" style="border-left-color: #388e3c">💰 <b>Total Entradas</b><br><span style="font-size:22px; color:#388e3c">R$ {df["VALOR DE ENTRADA"].sum():,.2f}</span></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="metric-card" style="border-left-color: #388e3c">💰 <b>Total Entradas</b><br><span style="font-size:22px; color:#388e3c">R$ {df_numerico.iloc[:, 4].sum():,.2f}</span></div>', unsafe_allow_html=True)
 
     st.markdown('<div class="header-row"> <div style="display: flex; justify-content: space-between;"> <span style="width:30%">PACIENTE</span> <span style="width:20%">TOTAL EM ATRASO</span> <span style="width:20%">ENTRADA</span> <span style="width:30%">AÇÃO</span> </div> </div>', unsafe_allow_html=True)
 
+    # Filtro de busca
     df_filtrado = df[df.iloc[:, 0].str.upper().str.contains(busca, na=False)]
 
     for index, row in df_filtrado.iterrows():
-        nome = str(row.iloc[0])
-        tel = str(row.iloc[1]).strip().split('.')[0]
-        email = str(row.iloc[2]) # Pega o email da coluna C
-        v_atraso_num = row['TOTAL EM ATRASO']
-        v_entrada_num = row['VALOR DE ENTRADA']
-        pix = str(row.iloc[8])
+        nome_paciente = str(row.iloc[0])
+        telefone = str(row.iloc[1]).strip().split('.')[0]
+        email_paciente = str(row.iloc[2])
+        val_atraso = f"{pd.to_numeric(row.iloc[3], errors='coerce'):,.2f}"
+        val_entrada = f"{pd.to_numeric(row.iloc[4], errors='coerce'):,.2f}"
+        chave_pix = str(row.iloc[8])
 
-        # A MÁGICA: Pega o texto da J2 e substitui as etiquetas
-        texto_final = modelo_da_planilha.replace("{nome}", nome)\
-                                        .replace("{atraso}", f"{v_atraso_num:,.2f}")\
-                                        .replace("{entrada}", f"{v_entrada_num:,.2f}")\
-                                        .replace("{pix}", pix)
+        # AQUI ESTÁ O SEGREDO: ELE TROCA INDEPENDENTE DE SER MAIÚSCULO OU MINÚSCULO
+        msg_personalizada = modelo_raw.replace("{nome}", nome_paciente).replace("{NOME}", nome_paciente)\
+                                      .replace("{atraso}", val_atraso).replace("{ATRASO}", val_atraso)\
+                                      .replace("{entrada}", val_entrada).replace("{ENTRADA}", val_entrada)\
+                                      .replace("{pix}", chave_pix).replace("{PIX}", chave_pix)
 
         with st.container():
             c1, c2, c3, c4 = st.columns([3, 2, 2, 3])
-            c1.markdown(f"**{nome}**")
-            c2.markdown(f"R$ {v_atraso_num:,.2f}")
-            c3.markdown(f"R$ {v_entrada_num:,.2f}")
+            c1.markdown(f"**{nome_paciente}**")
+            c2.markdown(f"R$ {val_atraso}")
+            c3.markdown(f"R$ {val_entrada}")
             
             with c4:
                 if canal_ativo == "WhatsApp":
-                    url = f"https://wa.me/{tel}?text={quote(texto_final)}"
+                    url = f"https://wa.me/{telefone}?text={quote(msg_personalizada)}"
                     st.link_button("🟢 WHATSAPP", url, use_container_width=True)
                 else:
-                    url = f"mailto:{email}?subject=Odonto Excellence&body={quote(texto_final)}"
+                    url = f"mailto:{email_paciente}?subject=Odonto Excellence&body={quote(msg_personalizada)}"
                     st.link_button("📩 E-MAIL", url, use_container_width=True)
             st.divider()
 
