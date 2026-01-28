@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 # 1. CONFIGURAÇÃO DA PÁGINA
 st.set_page_config(page_title="Painel Resgate Odonto", layout="wide", page_icon="🦷")
@@ -14,6 +14,7 @@ sheet_id = "1HGC6di7KxDY3Jj-xl4NXCeDHbwJI0A7iumZt9p8isVg"
 sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
 
 try:
+    # Lendo a planilha (usando a primeira linha como cabeçalho)
     df = pd.read_csv(sheet_url)
 
     # 3. BLOCO DE PERFORMANCE
@@ -34,11 +35,10 @@ try:
     with col_f2:
         canal_filtro = st.selectbox("🎯 Canal de Resgate", ["Todos", "WhatsApp", "E-mail"])
 
-    # Lógica de Filtro
+    # Lógica de Filtro por Nome (Coluna A)
     df_filtrado = df.copy()
     if busca:
-        coluna_nome = df.columns[0]
-        df_filtrado = df_filtrado[df_filtrado[coluna_nome].str.contains(busca, case=False, na=False)]
+        df_filtrado = df_filtrado[df_filtrado.iloc[:, 0].str.contains(busca, case=False, na=False)]
     
     # 5. CABEÇALHO
     st.markdown("""<style>.header-text { font-weight: bold; color: #555; font-size: 18px; }</style>""", unsafe_allow_html=True)
@@ -48,23 +48,25 @@ try:
     c3.markdown("<p class='header-text'>ENTRADA</p>", unsafe_allow_html=True)
     c4.markdown("<p class='header-text'>AÇÃO</p>", unsafe_allow_html=True)
 
-    # 6. LISTAGEM COM TEU TEXTO ORIGINAL
+    # 6. LISTAGEM USANDO A COLUNA G (Índice 6)
     for index, row in df_filtrado.iterrows():
         nome = str(row.iloc[0])
         atraso = row['TOTAL EM ATRASO']
         entrada = row['VALOR DE ENTRADA']
-        tel = str(row['TELEFONE']).split('.')[0]
         email = str(row['EMAIL'])
-        pix = str(row['CODIGO PIX'])
+        
+        # PEGA O LINK DIRETO DA COLUNA G (Índice 6 do Python)
+        link_wats_planilha = str(row.iloc[6]) 
+        
+        # EXTRAIR O TEXTO DO LINK PARA USAR NO E-MAIL
+        # Tenta pegar tudo que vem depois de 'text=' no link
+        if "text=" in link_wats_planilha:
+            texto_extraido = link_wats_planilha.split("text=")[1]
+        else:
+            texto_extraido = quote("Olá, gostaria de falar sobre seu tratamento na Odonto Excellence.")
 
-        # TEU TEXTO ORIGINAL
-        teu_texto = f"Oi {nome}! Sou o RENATO da Odonto Excellence. Sentimos sua falta! Para seu tratamento não parar, conseguimos uma condição especial de retorno: Entrada de R$ {entrada}. PIX: {pix}"
-        
-        # Links formatados
-        link_wats = f"https://wa.me/{tel}?text={quote(teu_texto)}"
-        
-        assunto = quote("Importante: Seu Tratamento na Odonto Excellence")
-        link_email = f"mailto:{email}?subject={assunto}&body={quote(teu_texto)}"
+        assunto = quote("Importante: Odonto Excellence")
+        link_email = f"mailto:{email}?subject={assunto}&body={texto_extraido}"
 
         with st.container():
             col1, col2, col3, col4 = st.columns([3, 2, 2, 2])
@@ -74,7 +76,7 @@ try:
             
             with col4:
                 if canal_filtro in ["Todos", "WhatsApp"]:
-                    st.link_button("🟢 WATS", link_wats, use_container_width=True)
+                    st.link_button("🟢 WATS", link_wats_planilha, use_container_width=True)
                 if canal_filtro in ["Todos", "E-mail"]:
                     st.link_button("📩 MAIL", link_email, use_container_width=True)
             st.divider()
