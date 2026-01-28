@@ -37,6 +37,13 @@ sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=cs
 try:
     df = pd.read_csv(sheet_url)
     
+    # 2. BUSCA O MODELO DA MENSAGEM NA J2 (Coluna 10, primeira linha de dados)
+    # Se a J2 estiver vazia, ele usa um texto padrão de segurança
+    try:
+        modelo_da_planilha = str(df.iloc[0, 9])
+    except:
+        modelo_da_planilha = "Oi {nome}, temos um assunto pendente na Odonto Excellence."
+
     # TRATAMENTO DE VALORES
     df['TOTAL EM ATRASO'] = pd.to_numeric(df.iloc[:, 3], errors='coerce').fillna(0)
     df['VALOR DE ENTRADA'] = pd.to_numeric(df.iloc[:, 4], errors='coerce').fillna(0)
@@ -62,25 +69,29 @@ try:
     for index, row in df_filtrado.iterrows():
         nome = str(row.iloc[0])
         tel = str(row.iloc[1]).strip().split('.')[0]
-        v_atraso = row['TOTAL EM ATRASO']
-        v_entrada = row['VALOR DE ENTRADA']
+        email = str(row.iloc[2]) # Pega o email da coluna C
+        v_atraso_num = row['TOTAL EM ATRASO']
+        v_entrada_num = row['VALOR DE ENTRADA']
         pix = str(row.iloc[8])
 
-        # TEXTO DEFINITIVO CORRIGIDO
-        texto_msg = f"Oi! Tudo bem? Eu sou RENATO, da clínica Odonto Excellence! Sentimos sua falta! 🦷\n\n📌 Total em atraso: R$ {v_atraso:,.2f}\n🤝 Entrada para Retorno: R$ {v_entrada:,.2f}\n\n📞 Se preferir que eu te ligue, digite OK 👌 e envia ✅\n\nCaso contrário, segue a chave Pix:\n🔑 {pix}\n\nApós realizar o pagamento, vá até a clínica para continuarmos seu tratamento !!! 🏥"
+        # A MÁGICA: Pega o texto da J2 e substitui as etiquetas
+        texto_final = modelo_da_planilha.replace("{nome}", nome)\
+                                        .replace("{atraso}", f"{v_atraso_num:,.2f}")\
+                                        .replace("{entrada}", f"{v_entrada_num:,.2f}")\
+                                        .replace("{pix}", pix)
 
         with st.container():
             c1, c2, c3, c4 = st.columns([3, 2, 2, 3])
             c1.markdown(f"**{nome}**")
-            c2.markdown(f"R$ {v_atraso:,.2f}")
-            c3.markdown(f"R$ {v_entrada:,.2f}")
+            c2.markdown(f"R$ {v_atraso_num:,.2f}")
+            c3.markdown(f"R$ {v_entrada_num:,.2f}")
             
             with c4:
                 if canal_ativo == "WhatsApp":
-                    url = f"https://wa.me/{tel}?text={quote(texto_msg)}"
+                    url = f"https://wa.me/{tel}?text={quote(texto_final)}"
                     st.link_button("🟢 WHATSAPP", url, use_container_width=True)
                 else:
-                    url = f"mailto:?subject=Odonto Excellence&body={quote(texto_msg)}"
+                    url = f"mailto:{email}?subject=Odonto Excellence&body={quote(texto_final)}"
                     st.link_button("📩 E-MAIL", url, use_container_width=True)
             st.divider()
 
